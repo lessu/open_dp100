@@ -10,17 +10,11 @@
 
 所以准备逆向看看底层通讯协议如何实现，然后使用其他语言做porting。
 
-
-
-先说结论：
-
-迷之使用了HID协议。导致在Mac上无法抢过kernel的HID driver，直接灭绝了在MacOs上的使用。随便换个Class都可以，非要用HID。
-
-
-
 ## Protocol 解析
 
 ### USB 枚举信息
+
+使用了HID协议。虽然不是HID但是是个HID Class
 
 ```
 ID 2e3c:af01
@@ -64,7 +58,7 @@ Device传Host时为 `0xfa`
 
 | OpCode | 说明        |      |
 | ------ | ----------- | ---- |
-| 0x10   | DEVICE)INFO |      |
+| 0x10   | DEVICE_INFO |      |
 | 0x11   | FIRM_INFO   |      |
 | 0x12   | START_TRANS |      |
 | 0x13   | DATA_TRANS  |      |
