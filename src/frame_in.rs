@@ -7,7 +7,7 @@ use endianness::{read_u16,read_i16, ByteOrder};
 use std::convert::TryInto;
 
 pub trait OperationIn:Sized {
-    fn from_data(data:&[u8]) -> Result<Self,()>;
+    fn from_data(data:&[u8]) -> Result<Self,FrameError>;
 }
 
 #[derive(Debug)]
@@ -15,7 +15,8 @@ pub enum FrameError {
     UnknownHeader,
     InvalidCrc,
     DataTooLong,
-    InvalidOpCode
+    InvalidOpCode,
+    InvalidPayload
 }
 
 pub struct InFrame{
@@ -33,6 +34,7 @@ impl InFrame{
             op_data_len:0
         }
     }
+    
     pub fn data<'a>(&'a self)->&'a [u8]{
         &self.op_data[0..self.op_data_len]
     }
@@ -69,8 +71,8 @@ pub fn deserialize_in_frame(buffer:&[u8;64],frame:&mut InFrame)->Result<(), Fram
     Ok(())
 }
 
-
-pub struct DeviceInfoIn {
+#[derive(Debug)]
+pub struct DeviceInfo {
     dev_type: [u8; 16],
     hdw_ver: u16,
     app_ver: u16,
@@ -82,12 +84,12 @@ pub struct DeviceInfoIn {
     day: u8,
 }
 
-impl OperationIn for DeviceInfoIn {
-    fn from_data(data: &[u8]) -> Result<Self,()> {
-        if data.len() != std::mem::size_of::<DeviceInfoIn>() { 
-            return Err(())
+impl OperationIn for DeviceInfo {
+    fn from_data(data: &[u8]) -> Result<Self,FrameError> {
+        if data.len() != std::mem::size_of::<DeviceInfo>() { 
+            return Err(FrameError::InvalidPayload);
         }
-        Ok(DeviceInfoIn {
+        Ok(DeviceInfo {
             dev_type: data[0..16].try_into().unwrap(),
             hdw_ver: read_u16(&data[16..18], ByteOrder::LittleEndian).unwrap(),
             app_ver: read_u16(&data[18..20], ByteOrder::LittleEndian).unwrap(),
@@ -100,7 +102,7 @@ impl OperationIn for DeviceInfoIn {
         })
     }
 }
-
+#[derive(Debug)]
 pub struct FirmInfo {
     hdw_ver: u16,
     app_ver: u16,
@@ -115,11 +117,11 @@ pub struct FirmInfo {
 }
 
 impl OperationIn for FirmInfo {
-    fn from_data(data: &[u8]) -> Result<Self,()> {
+    fn from_data(data: &[u8]) -> Result<Self,FrameError> {
         const SIZE:usize = 30;
 
         if data.len() != SIZE { 
-            return Err(())
+            return Err(FrameError::InvalidPayload);
         }
         Ok(FirmInfo {
             hdw_ver: read_u16(&data[0..2], ByteOrder::LittleEndian).unwrap(),
@@ -140,7 +142,7 @@ pub struct StartTransIn {
 }
 
 impl OperationIn for StartTransIn {
-    fn from_data(data: &[u8]) -> Result<Self,()> {
+    fn from_data(data: &[u8]) -> Result<Self,FrameError> {
         // 根据你的需求，从data中解析出相应的值
         Ok(StartTransIn {
             // 初始化字段
@@ -153,7 +155,7 @@ pub struct DataTransIn {
 }
 
 impl OperationIn for DataTransIn {
-    fn from_data(data: &[u8]) -> Result<Self,()> {
+    fn from_data(data: &[u8]) -> Result<Self,FrameError> {
         // 根据你的需求，从data中解析出相应的值
         Ok(DataTransIn {
             // 初始化字段
@@ -166,7 +168,7 @@ pub struct EndTransIn {
 }
 
 impl OperationIn for EndTransIn {
-    fn from_data(data: &[u8]) -> Result<Self,()> {
+    fn from_data(data: &[u8]) -> Result<Self,FrameError> {
         // 根据你的需求，从data中解析出相应的值
         Ok(EndTransIn {
             // 初始化字段
@@ -179,7 +181,7 @@ pub struct DevUpgradeIn {
 }
 
 impl OperationIn for DevUpgradeIn {
-    fn from_data(data: &[u8]) -> Result<Self,()> {
+    fn from_data(data: &[u8]) -> Result<Self,FrameError> {
         // 根据你的需求，从data中解析出相应的值
         Ok(DevUpgradeIn {
             // 初始化字段
@@ -208,11 +210,11 @@ pub struct BasicInfo {
 
 impl OperationIn for BasicInfo {
 
-    fn from_data(data: &[u8]) -> Result<Self,()> {
+    fn from_data(data: &[u8]) -> Result<Self,FrameError> {
         const SIZE:usize = 16;
 
         if data.len() != SIZE { 
-            return Err(())
+            return Err(FrameError::InvalidPayload)
         }
         Ok(BasicInfo {
             vin: read_u16(&data[0..2], ByteOrder::LittleEndian).unwrap(),
@@ -233,14 +235,14 @@ pub struct BasicSetIn {
 }
 
 impl OperationIn for BasicSetIn {
-    fn from_data(data: &[u8]) -> Result<Self,()> {
+    fn from_data(data: &[u8]) -> Result<Self,FrameError> {
         // 根据你的需求，从data中解析出相应的值
         Ok(BasicSetIn {
             // 初始化字段
         })
     }
 }
-
+#[derive(Debug)]
 pub struct SystemInfo {
     blk_lev: i8,
     opp: u16,
@@ -249,11 +251,11 @@ pub struct SystemInfo {
 }
 
 impl OperationIn for SystemInfo {
-    fn from_data(data: &[u8]) -> Result<Self,()> {
+    fn from_data(data: &[u8]) -> Result<Self,FrameError> {
         const SIZE:usize = 6;
 
-        if data.len() != SIZE { 
-            return Err(())
+        if data.len() != SIZE {
+            return Err(FrameError::InvalidPayload);
         }
         Ok(SystemInfo {
             blk_lev: data[0] as i8,
@@ -269,7 +271,7 @@ pub struct SystemSetIn {
 }
 
 impl OperationIn for SystemSetIn {
-    fn from_data(data: &[u8]) -> Result<Self,()> {
+    fn from_data(data: &[u8]) -> Result<Self,FrameError> {
         // 根据你的需求，从data中解析出相应的值
         Ok(SystemSetIn {
             // 初始化字段
@@ -282,7 +284,7 @@ pub struct ScanOutIn {
 }
 
 impl OperationIn for ScanOutIn {
-    fn from_data(data: &[u8]) -> Result<Self,()> {
+    fn from_data(data: &[u8]) -> Result<Self,FrameError> {
         // 根据你的需求，从data中解析出相应的值
         Ok(ScanOutIn {
             // 初始化字段
@@ -295,7 +297,7 @@ pub struct SerialOutIn {
 }
 
 impl OperationIn for SerialOutIn {
-    fn from_data(data: &[u8]) -> Result<Self,()> {
+    fn from_data(data: &[u8]) -> Result<Self,FrameError> {
         // 根据你的需求，从data中解析出相应的值
         Ok(SerialOutIn {
             // 初始化字段
@@ -308,7 +310,7 @@ pub struct DisconnectIn {
 }
 
 impl OperationIn for DisconnectIn {
-    fn from_data(data: &[u8]) -> Result<Self,()> {
+    fn from_data(data: &[u8]) -> Result<Self,FrameError> {
         // 根据你的需求，从data中解析出相应的值
         Ok(DisconnectIn {
             // 初始化字段
