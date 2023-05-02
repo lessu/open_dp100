@@ -1,9 +1,6 @@
-mod frame_out;
-mod frame_in;
-mod opcode;
-// mod lib;
-// use lib as open_dp100;
-use open_dp100::{OpenDP100};
+use std::time::Duration;
+use open_dp100::{OpenDP100, OutputState};
+
 
 fn main() {
 
@@ -17,9 +14,14 @@ fn main() {
 
     println!("{:?}",api.device_info().unwrap());
 
-    // println!("{:?}",api.firm_info().unwrap());
-
     println!("{:?}",api.basic_info().unwrap());
 
+    println!("{:?}",api.current_basic_set().unwrap());
+
+    api.switch_config(6).unwrap();
+
+    api.set_output_on(OutputState::On).unwrap();
+    std::thread::sleep(Duration::from_secs(3));
+    api.set_output_on(OutputState::Off).unwrap();
 
 }

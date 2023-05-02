@@ -1,13 +1,17 @@
-use frame_out::{BasicInfoOut, serialize_out_frame, OperationOut,FirmInfoOut, DeviceInfoOut, SystemInfoOut};
-use frame_in::{BasicInfo, OperationIn, deserialize_in_frame, InFrame, FirmInfo, SystemInfo,  DeviceInfo};
+use frame::{deserialize_in_frame, Frame, Operational,FrameError};
+use data::{DeviceInfo, BasicInfo, SystemInfo};
 use hidapi::{HidApi, HidDevice};
 use error::OpenDP100Error;
 use opcode::OpCode;
 
-mod frame_out;
-mod frame_in;
+use crate::{frame::serialize_out_frame, data::{BasicSet, OperationResult}};
+
+pub use data::OutputState;
+
+mod frame;
 mod opcode;
 mod error;
+mod data;
 
 const VID: u16 = 0x2e3c;
 const PID: u16 = 0xaf01;
@@ -16,13 +20,12 @@ const READ_TIME_OUT_MS : i32 =200;
 pub struct OpenDP100{
     hid_device:HidDevice,
 }
-
-macro_rules! create_req_impl {
-    ($fn_name:tt,$op_code:pat,$req:ident,$res:ident) => {
-        pub fn $fn_name(&self)->Result<$res,OpenDP100Error>{
+macro_rules! session_impl {
+    ($self:expr,$op_code:pat,$req:expr,$res:ident)=>{
+        {
             let mut retry = 0;
             let response_res = loop{
-                let frame = self.session(&$req{ })?;
+                let frame = $self.session($req)?;
 
                 match frame.op_code {
                     $op_code => {
@@ -30,7 +33,7 @@ macro_rules! create_req_impl {
                     }
                     _ => {
                         if retry == 3{
-                            return Err(OpenDP100Error::DEVICE);
+                            break Err(FrameError::InvalidOpCode);
                         }else{
                             retry = retry + 1;
                             continue;
@@ -41,14 +44,14 @@ macro_rules! create_req_impl {
 
             match response_res{
                 Ok(response) => {
-                    return Ok(response);
+                    Ok(response)
                 }
                 Err(_)=>{
-                    return Err(OpenDP100Error::DEVICE);
+                    Err(OpenDP100Error::DEVICE)
                 }
             }
         }
-    };
+    }
 }
 
 
@@ -115,7 +118,7 @@ impl OpenDP100{
         }
     }
     
-    fn session(&self,request:&dyn OperationOut) -> Result<InFrame,OpenDP100Error>{
+    fn session(&self,request:&Frame) -> Result<Frame,OpenDP100Error>{
         // write request
         let mut output = [0u8;64];
         serialize_out_frame(request, &mut output );
@@ -128,7 +131,7 @@ impl OpenDP100{
 
 
         // read response
-        let mut frame = InFrame::empty();
+        let mut frame = Frame::empty();
         let mut input = [0u8;64];
         self.read(&mut input)?;
 
@@ -146,9 +149,77 @@ impl OpenDP100{
         Ok(frame)
     }
 
-    create_req_impl!(device_info,OpCode::DeviceInfo,DeviceInfoOut,DeviceInfo);
-    // create_req_impl!(firm_info,OpCode::FirmInfo,FirmInfoOut,FirmInfo);
-    create_req_impl!(basic_info,OpCode::BasicInfo,BasicInfoOut,BasicInfo);
-    create_req_impl!(sys_info,OpCode::SystemInfo,SystemInfoOut,SystemInfo);
+    pub fn device_info(&self)->Result<DeviceInfo,OpenDP100Error>{
+        let req = Frame::new(OpCode::DeviceInfo, &[0u8;0]);
+        session_impl!(self,OpCode::DeviceInfo,&req,DeviceInfo)
+    }
+    
+    pub fn basic_info(&self)->Result<BasicInfo,OpenDP100Error>{
+        let req = Frame::new(OpCode::BasicInfo, &[0u8;0]);
+        session_impl!(self,OpCode::BasicInfo,&req,BasicInfo)
+    }
+
+    pub fn sys_info(&self)->Result<SystemInfo,OpenDP100Error>{
+        let req = Frame::new(OpCode::SystemInfo, &[0u8;0]);
+        session_impl!(self,OpCode::SystemInfo,&req,SystemInfo)
+    }
+
+    pub fn basic_set(&self,idx:usize)->Result<BasicSet,OpenDP100Error>{
+        if idx>10{
+            return Err(OpenDP100Error::INVALID_PARAM);
+        }
+        let req = Frame::new(OpCode::BasicSet, &[idx as u8;1]);
+        session_impl!(self,OpCode::BasicSet,&req,BasicSet)
+    }
+
+    pub fn current_basic_set(&self)->Result<BasicSet,OpenDP100Error>{
+        let req = Frame::new(OpCode::BasicSet, &[0x80u8;1]);
+        session_impl!(self,OpCode::BasicSet,&req,BasicSet)
+    }
+
+    pub fn update_basic_set(&self,set_req:&BasicSet,switch:bool)->Result<(),OpenDP100Error>{
+        let mut set = (*set_req).clone();
+        set.index = {if switch {0xa0} else {0x20}} + set.index;
+
+        let req: Frame = Frame::new(OpCode::BasicSet, &set.to_data());
+        let r = session_impl!(self,OpCode::BasicSet,&req,OperationResult);
+        
+        match r {
+            Ok(ok) => {
+                match ok.result {
+                    data::OpResult::Success=>{
+                        Ok(())
+                    }
+                    _=>{
+                        Err(OpenDP100Error::DEVICE)
+                    }
+                } 
+            }
+            Err(e)=>{
+                Err(e)
+            }
+        }
+    }
+
+}
+
+/** High level api */
+impl OpenDP100 {
+    
+    pub fn set_output_on(&self,on:OutputState) -> Result<(),OpenDP100Error>{
+        let mut basic_set = self.current_basic_set()?;
+        if basic_set.state == on{
+            return Ok(())
+        }
+        basic_set.state = on;
+        self.update_basic_set(&basic_set, false)?;
+        Ok(())
+    }
+    
+    pub fn switch_config(&self,idx:usize) -> Result<(),OpenDP100Error>{
+        let config_set = self.basic_set(idx)?;
+        self.update_basic_set(&config_set, true)?;
+        Ok(())
+    }
 
 }

@@ -59,7 +59,6 @@ Device传Host时为 `0xfa`
 | OpCode | 说明        |      |
 | ------ | ----------- | ---- |
 | 0x10   | DEVICE_INFO |      |
-| 0x11   | FIRM_INFO   |      |
 | 0x12   | START_TRANS |      |
 | 0x13   | DATA_TRANS  |      |
 | 0x14   | END_TRANS   |      |
@@ -116,35 +115,14 @@ Device发送数据如下
 | 名称     | 类型      |      |
 | -------- | --------- | ---- |
 | dev type | uint8[16] |      |
-| hdw_ver  | uint16    |      |
-| app_ver  | uint16    |      |
+| hdw_ver  | uint16    | origin:11 means 1.1     |
+| app_ver  | uint16    | origin:11 means 1.2     |
 | boot_ver | uint16    |      |
 | run_area | uint16    |      |
 | dev_sn   | uint8[12] |      |
 | year     | uint16    |      |
 | moon     | uint8     |      |
 | day      | uint8     |      |
-
-### 0x11  FIRM_INFO
-
-Host 发送Len = 0
-
-Device发送数据如下
-
-| 名称        | 类型      |      |
-| ----------- | --------- | ---- |
-| hdw_ver     | uint16    |      |
-| app_ver     | uint16    |      |
-| bin_crc16   | uint16    |      |
-| bin_size    | uint8     |      |
-| dataLen     | uint8     |      |
-| dev_type    | uint8[16] |      |
-| encrypt_pos | uint8     |      |
-| year        | uint16    |      |
-| moon        | uint8     |      |
-| day         | uint16    |      |
-
-
 
 ### 0x12  START_TRANS
 
@@ -189,19 +167,44 @@ Device发送
 | work st | uint8 | 这个枚举具体多少没试 |
 
 ### 0×35 BASIC_SET 
+This is not set basic info.
+There is a list of `Basic Set`,10 set is storaged in device.
 
-Host 发送
+#### Query
+Host sending len = 1
 
+| name    | type   |      |
+| ------- | ------ | ---- |
+| index   | uint8  |      |
+
+to query the `Basic Set`,the device responses.
+
+higher 4bit of index is flags,seems defined as below
+
+index=80,to query activated one
+
+#### Set
+`Basic Set` has a structure below
 | 名称    | 类型   |      |
 | ------- | ------ | ---- |
 | index   | uint8  |      |
-| state   | uint8  |      |
+| state   | uint8  | 0=off<br/>1=on    |
 | vo_set  | uint16 |      |
 | io_set  | uint16 |      |
 | ovp_set | uint16 |      |
 | ocp_set | int16  |      |
 
-Device发送 未测试
+index=20,modify the set
+index=80,set as activated
+index=a0,modify the set,set as activated
+
+when Host sending len = 16,and the payload is `Basic Set`, it means host request to set the `Basic Set`.
+
+The Device reply as 
+| 名称    | 类型   |      |
+| ------- | ------ | ---- |
+| result   | uint8  | 1 = ok |
+
 
 ### 0×40 SYSTEM_INFO
 
@@ -211,10 +214,10 @@ Device发送
 
 | 名称    | 类型   |      |
 | ------- | ------ | ---- |
-| blk_lev | int8   |      |
-| opp     | uint16 |      |
-| opt     | uint16 |      |
-| vol_kev | int8   |      |
+| blk_lev | int8   |  backlight    |
+| opp     | uint16 |  over power    |
+| opt     | uint16 |  over temperature    |
+| vol_lev | int8   |  beep volumn    |
 
 ### 0x45 SYSTEM_SET
 
