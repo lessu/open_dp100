@@ -1,12 +1,10 @@
-use frame::{deserialize_in_frame, Frame, Operational,FrameError};
-use data::{DeviceInfo, BasicInfo, SystemInfo};
+use frame::{deserialize_in_frame,serialize_out_frame,Frame,Operational,FrameError};
 use hidapi::{HidApi, HidDevice};
-use error::OpenDP100Error;
-use opcode::OpCode;
 
-use crate::{frame::serialize_out_frame, data::{BasicSet, OperationResult}};
+pub use error::OpenDP100Error;
+pub use opcode::OpCode;
 
-pub use data::OutputState;
+pub use data::{OutputState,BasicInfo,SystemInfo,DeviceInfo,BasicSet,OperationResult};
 
 mod frame;
 mod opcode;
@@ -122,11 +120,11 @@ impl OpenDP100{
         // write request
         let mut output = [0u8;64];
         serialize_out_frame(request, &mut output );
-        print!("Write:");
-        for d in output{
-            print!("{:02x}",d);
-        }
-        println!();
+        // print!("Write:");
+        // for d in output{
+        //     print!("{:02x}",d);
+        // }
+        // println!();
         self.write(&output)?;
 
 
@@ -135,11 +133,11 @@ impl OpenDP100{
         let mut input = [0u8;64];
         self.read(&mut input)?;
 
-        print!("Read:");
-        for d in input{
-            print!("{:02x}",d);
-        }
-        println!();
+        // print!("Read:");
+        // for d in input{
+        //     print!("{:02x}",d);
+        // }
+        // println!();
 
         let res = deserialize_in_frame(&input, &mut frame);
         if res.is_err(){

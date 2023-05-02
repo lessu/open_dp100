@@ -3,8 +3,13 @@ name = "open_dp100"
 version = "0.1.0"
 edition = "2018"
 
+[[bin]]
+name = "cli"
+path = "src/cli.rs"
+
 [dependencies]
 rusb = "0.8.0"
 hidapi = "2.2.2"
 crc16 = "0.4.0"
 endianness = "0.2.0"
+clap = "4.2.5"
