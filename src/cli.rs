@@ -98,7 +98,7 @@ fn main() {
                 .after_help("example:\n\
                                 dp100 set on\n\
                                 dp100 set config=2\n\
-                                dp100 set config=2 on vout=13.4 \n\
+                                dp100 set config=2 on vout=13.4\n\
                             ")
         )
         .get_matches();
@@ -221,7 +221,7 @@ fn main() {
                   _ => panic!("Invalid key-value pair"),
               }
             }
-            println!("{:#?}", config);
+
             if let Some(idx) = config.config{
                 let current_set = device.current_basic_set().unwrap();
                 if current_set.index != idx as u8 {
@@ -233,7 +233,6 @@ fn main() {
             if config.on {
                 current_set.state = OutputState::On;
             }
-
             if config.off {
                 current_set.state = OutputState::Off;
             }
