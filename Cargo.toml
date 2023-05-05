@@ -8,7 +8,6 @@ name = "cli"
 path = "src/cli.rs"
 
 [dependencies]
-rusb = "0.8.0"
 hidapi = "2.2.2"
 crc16 = "0.4.0"
 endianness = "0.2.0"
